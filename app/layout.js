@@ -22,7 +22,7 @@ export default function RootLayout({ children }) {
             {children}
           </div>
           <footer className="text-center py-4">
-            &copy; {new Date().getFullYear()} Copyright by <Link href="mailto:djmangonkar@gmail.com">Digvijay Mangaonkar</Link>
+            &copy; {new Date().getFullYear()} Copyright by <Link href="mailto:sohamchavan0629@gmail.com">Soham Chavan</Link>
           </footer>
           <Analytics debug={false}/> {/* Add Analytics here */}
         </body>

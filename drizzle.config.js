@@ -6,6 +6,6 @@ export default {
     schema: "./utils/schema.js",
     dialect: 'postgresql',
     dbCredentials: {
-        url: "postgresql://DB_owner:o13WMjGNIdEU@ep-young-sea-a5w49dvm-pooler.us-east-2.aws.neon.tech/DB?sslmode=require",
+        url: "postgresql://neondb_owner:npg_utH38LGWKxBD@ep-summer-mouse-adwj629l-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
     }
 };
