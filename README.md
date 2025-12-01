@@ -105,7 +105,7 @@ Users sign up or log in securely using **Clerk Authentication**. Once logged in,
 ---
 
 ## Live demo link  
-👉 [https://i-vene-1-0.vercel.app/](https://i-vene-1-0.vercel.app/)  
+👉 [https://i-vene1-0.vercel.app/](https://i-vene1-0.vercel.app/)  
 
 ---
 
@@ -127,7 +127,7 @@ Users sign up or log in securely using **Clerk Authentication**. Once logged in,
 
 ### 1️⃣ Clone the Repository  
 ```bash
-git clone https://github.com/DJ-BoT07/I-vene-1.0.git
+git clone https://github.com/bhaveshdeore56/S-ham_Project.git
 cd i-vene-1.0-main
 ```
 
