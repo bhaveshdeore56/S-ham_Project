@@ -21,6 +21,7 @@ function RecordAnswerSection({
 	const [userAnswer, setUserAnswer] = useState("");
 	const { user } = useUser();
 	const [loading, setLoading] = useState(false);
+	const [isStarting, setIsStarting] = useState(false);
 
 	const {
 		error,
@@ -34,6 +35,17 @@ function RecordAnswerSection({
 		continuous: true,
 		useLegacyResults: false,
 	});
+
+	// Cleanup: Stop recording and reset answer when question changes
+	useEffect(() => {
+		if (isRecording) {
+			console.log("🧹 Question changed: Stopping recording");
+			stopSpeechToText();
+		}
+		// Reset answer for new question
+		setUserAnswer("");
+		setResults([]);
+	}, [activeQuestionIndex]);
 
 	useEffect(() => {
 		if (results.length > 0) {
@@ -49,14 +61,38 @@ function RecordAnswerSection({
 	}, [isRecording, userAnswer]);
 
 	const StartStopRecording = async () => {
-		if (isRecording) {
-			stopSpeechToText();
-		} else {
-			startSpeechToText();
+		// Prevent double-clicking
+		if (isStarting) {
+			console.log("⚠️ Already starting/stopping, please wait...");
+			return;
+		}
+
+		try {
+			setIsStarting(true);
+
+			if (isRecording) {
+				console.log("🛑 Stopping recording...");
+				stopSpeechToText();
+			} else {
+				console.log("🎤 Starting recording...");
+				startSpeechToText();
+			}
+
+			// Reset the flag after a short delay
+			setTimeout(() => setIsStarting(false), 500);
+		} catch (err) {
+			console.error("Error toggling recording:", err);
+			toast.error("Failed to toggle recording. Please try again.");
+			setIsStarting(false);
 		}
 	};
 
 	const UpdateUserAnswerInDB = async () => {
+		console.log("💾 Starting UpdateUserAnswerInDB...");
+		console.log("📝 User Answer:", userAnswer);
+		console.log("📊 Question Index:", activeQuestionIndex);
+		console.log("❓ Current Question:", mockInterviewQuestion[activeQuestionIndex]?.Question);
+
 		setLoading(true);
 
 		const feedbackPrompt =
@@ -65,35 +101,60 @@ function RecordAnswerSection({
 			`Depends on Question and user answer for given interview question` +
 			`please give us rating (you must not be so strict while rating ) for answer and feedback as area of improvement if any in just 3 to 5 lines to improve it in JSON format with rating field and feedback field`;
 
+		console.log("📤 Feedback Prompt:", feedbackPrompt);
+
 		try {
+			console.log("🤖 Calling Gemini AI for feedback...");
 			const result = await chatSession.sendMessage(feedbackPrompt);
+			console.log("✅ Gemini AI feedback response received");
+
 			let MockJSONResp = await result.response.text();
+			console.log("📄 Raw Feedback Response:", MockJSONResp);
 
-			// console.log("Raw Response:", MockJSONResp);
-
+			// Remove markdown code blocks and trim
 			MockJSONResp = MockJSONResp.replace("```json", "")
 				.replace("```", "")
 				.trim();
 
+			// Extract valid JSON (from first { to last })
+			const jsonStart = MockJSONResp.indexOf("{");
 			const jsonEnd = MockJSONResp.lastIndexOf("}") + 1;
-			const validJson = MockJSONResp.substring(0, jsonEnd);
+			let validJson = MockJSONResp.substring(jsonStart, jsonEnd);
+
+			// Remove trailing commas before closing braces (common AI mistake)
+			validJson = validJson.replace(/,(\s*})/g, "$1");
+			validJson = validJson.replace(/,(\s*])/g, "$1");
+
+			console.log("🔧 Cleaned Feedback JSON:", validJson);
 
 			let parsedResponse;
 			try {
 				parsedResponse = JSON.parse(validJson);
-				// console.log("Parsed JSON:", parsedResponse);
+				console.log("✅ Feedback JSON parsed successfully:", parsedResponse);
 			} catch (parseError) {
-				console.error("Failed to parse JSON:", parseError);
+				console.error("❌ Failed to parse feedback JSON:", parseError);
+				console.error("Invalid JSON string:", validJson);
 				toast.error("Failed to parse feedback JSON.");
+				setLoading(false);
 				return;
 			}
 
-			// console.log("mockIdRef", interviewData.mockId);
+			console.log("💾 Saving answer to database...");
+			console.log("Database values:", {
+				mockIdRef: interviewData.mockId,
+				question: mockInterviewQuestion[activeQuestionIndex]?.Question,
+				correctAns: mockInterviewQuestion[activeQuestionIndex]?.Answer,
+				userAns: userAnswer,
+				feedback: parsedResponse?.feedback,
+				rating: parsedResponse?.rating,
+				userEmail: user.primaryEmailAddress?.emailAddress,
+				createdAt: moment().format("DD-MM-YYYY"),
+			});
 
 			const resp = await db
 				.insert(answersOfUser)
 				.values({
-					mockIdRef: interviewData.mockId, 
+					mockIdRef: interviewData.mockId,
 					question: mockInterviewQuestion[activeQuestionIndex]?.Question,
 					correctAns: mockInterviewQuestion[activeQuestionIndex]?.Answer,
 					userAns: userAnswer,
@@ -104,7 +165,7 @@ function RecordAnswerSection({
 				})
 				.returning({ id: answersOfUser.mockIdRef });
 
-			// console.log("Insert Response:", resp);
+			console.log("✅ Database Insert Response:", resp);
 
 			if (resp) {
 				toast.success("Answer saved successfully");
@@ -112,7 +173,9 @@ function RecordAnswerSection({
 				setResults([]);
 			}
 		} catch (error) {
-			console.error("Failed to process response:", error);
+			console.error("❌ Failed to process response:", error);
+			console.error("Error message:", error.message);
+			console.error("Error stack:", error.stack);
 			toast.error("An error occurred while generating feedback.");
 		} finally {
 			setUserAnswer("");
@@ -159,7 +222,7 @@ function RecordAnswerSection({
 				)}
 			</div>
 			<Button
-				disabled={loading}
+				disabled={loading || isStarting}
 				variant="outline"
 				className="my-10"
 				onClick={StartStopRecording}

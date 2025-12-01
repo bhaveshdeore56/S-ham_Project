@@ -35,6 +35,10 @@ function AddNewInterview() {
         setLoading(true);
         e.preventDefault();
 
+        console.log("🔵 Form submitted");
+        console.log("📋 Form data:", { jobPosition, jobDescription, jobExperience });
+        console.log("👤 User:", user?.primaryEmailAddress?.emailAddress);
+
         const InputPrompt =
             "Job Position: " +
             jobPosition +
@@ -46,9 +50,15 @@ function AddNewInterview() {
             process.env.NEXT_PUBLIC_INTERVIEW_QUESTION_COUNT +
             " Interview Questions with Answers in JSON Format. Use 'Question' and 'Answer' as fields in JSON.";
 
+        console.log("📝 AI Prompt:", InputPrompt);
+
         try {
+            console.log("🤖 Calling Gemini AI...");
             const result = await chatSession.sendMessage(InputPrompt);
+            console.log("✅ Gemini AI response received");
+
             let MockJSONResp = await result.response.text();
+            console.log("📄 Raw response:", MockJSONResp);
 
             MockJSONResp = MockJSONResp.replace("```json", "")
                 .replace("```", "")
@@ -56,12 +66,15 @@ function AddNewInterview() {
 
             const jsonEnd = MockJSONResp.lastIndexOf("]") + 1;
             const validJson = MockJSONResp.substring(0, jsonEnd);
+            console.log("🔧 Cleaned JSON:", validJson);
 
             let parsedResponse;
             try {
                 parsedResponse = JSON.parse(validJson);
+                console.log("✅ JSON parsed successfully:", parsedResponse);
             } catch (parseError) {
-                console.error("Failed to parse JSON:", parseError);
+                console.error("❌ Failed to parse JSON:", parseError);
+                console.error("Invalid JSON string:", validJson);
                 setLoading(false);
                 return;
             }
@@ -69,6 +82,7 @@ function AddNewInterview() {
             setJsonResponse(parsedResponse);
 
             if (parsedResponse) {
+                console.log("💾 Saving to database...");
                 const resp = await db
                     .insert(MockInterview)
                     .values({
@@ -82,15 +96,20 @@ function AddNewInterview() {
                     })
                     .returning({ mockId: MockInterview.mockId });
 
+                console.log("✅ Database response:", resp);
+
                 if (resp) {
+                    console.log("🚀 Redirecting to interview page...");
                     setOpenDialog(false);
                     router.push(`/dashboard/interview/` + resp[0]?.mockId);
                 }
             } else {
-                console.log("ERROR: Failed to insert Mock Interview");
+                console.log("❌ ERROR: Failed to insert Mock Interview");
             }
         } catch (error) {
-            console.error("Failed to process response:", error);
+            console.error("❌ Failed to process response:", error);
+            console.error("Error details:", error.message);
+            console.error("Error stack:", error.stack);
         }
 
         setLoading(false);
